@@ -470,7 +470,7 @@ function cleanShapeName(raw) {
 let allShapes = [];
     async function loadShapes() {
       try {
-        const res = await fetch('/api/models');
+        const res = await fetch('https://chat.nextgencoders.xyz/api/models');
         allShapes = await res.json();  // expects an array of shape IDs
       } catch { allShapes = []; }
     }
@@ -616,7 +616,7 @@ inp.addEventListener('focus', () => inp.dispatchEvent(new Event('input')));
 
     async function getBotAvatar(shapeId) {
   try {
-    const res = await fetch(`/api/avatar?shape=${shapeId}`);
+    const res = await fetch(`https://chat.nextgencoders.xyz/api/avatar?shape=${shapeId}`);
     const data = await res.json();
     return data.avatar || `https://api.dicebear.com/6.x/bottts/svg?seed=${shapeId}`;
   } catch {
@@ -671,7 +671,7 @@ inp.addEventListener('focus', () => inp.dispatchEvent(new Event('input')));
 
   try {
     // ✅ Ping backend to check API health
-    const res = await fetch('/api/ping', { cache: 'no-store' });
+    const res = await fetch('https://chat.nextgencoders.xyz/api/ping', { cache: 'no-store' });
     if (!res.ok) {
       const body = await res.json();
       throw new Error(body.error || "Shapes API not reachable.");
@@ -797,7 +797,7 @@ if (msg.startsWith("@")) {
   }
 
   try {
-  const res = await fetch("/api/history");
+  const res = await fetch("https://chat.nextgencoders.xyz/api/history");
   const history = await res.json();
   document.getElementById('chatLoading')?.remove(); // ✅ Hide loading text
 
