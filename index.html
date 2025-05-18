@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Simple Chat Interface</title>
+    <title>Shapes AI Chat Interface</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -12,24 +12,35 @@
     <div class="flex flex-1 overflow-hidden flex-col md:flex-row">
         <!-- Sidebar -->
         <div id="mobileSidebar" class="w-full md:w-1/4 bg-gray-900 p-5 border-r border-gray-800 overflow-y-auto max-h-screen">
-            <h1 class="text-2xl font-bold mb-4 text-white">💬 Chat</h1>
+            <h1 class="text-2xl font-bold mb-4 text-white">🤖 Shapes AI Chat</h1>
             
-            <!-- Connection Input -->
+            <!-- Connection Settings -->
             <div class="relative mb-2">
-                <input id="username" type="text" placeholder="Enter your username"
+                <input id="apiKey" type="password" placeholder="Enter your API key"
                     class="w-full px-3 py-2 rounded bg-gray-100 text-black focus:outline-none mb-2" />
-                <input id="apiEndpoint" type="text" placeholder="API Endpoint"
+                <input id="shapeUsername" type="text" placeholder="Shape username (e.g. chat-gpt-4o)"
                     class="w-full px-3 py-2 rounded bg-gray-100 text-black focus:outline-none" />
             </div>
             <button id="connectBtn" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded mb-2">Connect</button>
             <button id="disconnectBtn" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded hidden">Disconnect</button>
+            
+            <!-- Command Quick Access -->
+            <div class="mt-4">
+                <h3 class="text-sm font-semibold text-gray-400 mb-2">Quick Commands</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="sendCommand('!help')" class="bg-gray-800 hover:bg-gray-700 text-white py-1 px-2 rounded text-sm">!help</button>
+                    <button onclick="sendCommand('!reset')" class="bg-gray-800 hover:bg-gray-700 text-white py-1 px-2 rounded text-sm">!reset</button>
+                    <button onclick="sendCommand('!info')" class="bg-gray-800 hover:bg-gray-700 text-white py-1 px-2 rounded text-sm">!info</button>
+                    <button onclick="sendCommand('!wack')" class="bg-gray-800 hover:bg-gray-700 text-white py-1 px-2 rounded text-sm">!wack</button>
+                </div>
+            </div>
         </div>
 
         <!-- Chat Area -->
         <div class="flex flex-col w-full h-full overflow-hidden">
             <!-- Chat Header -->
             <div class="text-center py-3 text-lg font-semibold bg-gray-800 shadow-sm flex justify-center items-center gap-2 border-b border-gray-700">
-                Status: <span id="connectionStatus" class="text-red-400 ml-1">Not connected</span>
+                Shape: <span id="connectionStatus" class="text-red-400 ml-1">Not connected</span>
             </div>
 
             <!-- Chat Messages -->
@@ -48,16 +59,20 @@
     </div>
 
     <script>
-        // Chat functionality
+        const API_BASE_URL = 'https://api.shapes.inc/v1';
         let connected = false;
+        let lastRequestTime = 0;
+        const RATE_LIMIT_DELAY = 12000; // 12 seconds between requests (5 RPM)
+
+        // DOM Elements
         const chat = document.getElementById('chat');
         const chatForm = document.getElementById('chatForm');
         const msgInput = document.getElementById('msg');
         const connectBtn = document.getElementById('connectBtn');
         const disconnectBtn = document.getElementById('disconnectBtn');
         const statusEl = document.getElementById('connectionStatus');
-        const usernameInput = document.getElementById('username');
-        const apiEndpointInput = document.getElementById('apiEndpoint');
+        const apiKeyInput = document.getElementById('apiKey');
+        const shapeUsernameInput = document.getElementById('shapeUsername');
 
         function appendMessage(role, content, timestamp = new Date().toISOString()) {
             const wrapper = document.createElement('div');
@@ -66,9 +81,12 @@
             const bubble = document.createElement('div');
             bubble.className = `max-w-[75%] p-3 rounded-lg ${role === 'user' ? 'bg-indigo-600' : 'bg-gray-700'}`;
             
+            // Parse markdown in bot responses
+            const messageContent = role === 'assistant' ? marked.parse(content) : content;
+            
             const timeStr = new Date(timestamp).toLocaleTimeString();
             bubble.innerHTML = `
-                <div class="text-sm">${content}</div>
+                <div class="text-sm prose prose-invert">${messageContent}</div>
                 <div class="text-xs text-gray-400 mt-1">${timeStr}</div>
             `;
 
@@ -77,23 +95,31 @@
             chat.scrollTop = chat.scrollHeight;
         }
 
-        function connect() {
-            const username = usernameInput.value.trim();
-            const apiEndpoint = apiEndpointInput.value.trim();
+        async function connect() {
+            const apiKey = apiKeyInput.value.trim();
+            const shapeUsername = shapeUsernameInput.value.trim();
             
-            if (!username || !apiEndpoint) {
-                alert('Please enter both username and API endpoint');
+            if (!apiKey || !shapeUsername) {
+                alert('Please enter both API key and shape username');
                 return;
             }
 
-            connected = true;
-            statusEl.textContent = 'Connected';
-            statusEl.classList.remove('text-red-400');
-            statusEl.classList.add('text-green-400');
-            connectBtn.classList.add('hidden');
-            disconnectBtn.classList.remove('hidden');
-            
-            appendMessage('system', '🟢 Connected successfully');
+            try {
+                // Test connection with a simple message
+                const response = await sendToAPI("Hello", apiKey, shapeUsername);
+                if (response.error) throw new Error(response.error);
+                
+                connected = true;
+                statusEl.textContent = shapeUsername;
+                statusEl.classList.remove('text-red-400');
+                statusEl.classList.add('text-green-400');
+                connectBtn.classList.add('hidden');
+                disconnectBtn.classList.remove('hidden');
+                
+                appendMessage('system', '🟢 Connected to ' + shapeUsername);
+            } catch (error) {
+                alert('Connection failed: ' + error.message);
+            }
         }
 
         function disconnect() {
@@ -107,6 +133,45 @@
             appendMessage('system', '🔴 Disconnected');
         }
 
+        async function sendToAPI(message, apiKey, shapeUsername) {
+            const now = Date.now();
+            if (now - lastRequestTime < RATE_LIMIT_DELAY) {
+                throw new Error('Please wait a moment before sending another message (Rate limit: 5 requests per minute)');
+            }
+            
+            const response = await fetch(`${API_BASE_URL}/chat/completions`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: `shapesinc/${shapeUsername}`,
+                    messages: [
+                        { role: "user", content: message }
+                    ]
+                })
+            });
+
+            lastRequestTime = Date.now();
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'API request failed');
+            }
+
+            return response.json();
+        }
+
+        function sendCommand(cmd) {
+            if (!connected) {
+                alert('Please connect first');
+                return;
+            }
+            msgInput.value = cmd;
+            chatForm.dispatchEvent(new Event('submit'));
+        }
+
         connectBtn.addEventListener('click', connect);
         disconnectBtn.addEventListener('click', disconnect);
 
@@ -115,37 +180,30 @@
             const message = msgInput.value.trim();
             if (!message || !connected) return;
 
+            const apiKey = apiKeyInput.value.trim();
+            const shapeUsername = shapeUsernameInput.value.trim();
+
             appendMessage('user', message);
             msgInput.value = '';
 
             try {
-                const apiEndpoint = apiEndpointInput.value.trim();
-                const response = await fetch(apiEndpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message,
-                        username: usernameInput.value.trim()
-                    })
-                });
-
-                const data = await response.json();
-                appendMessage('bot', data.response || 'No response');
+                const response = await sendToAPI(message, apiKey, shapeUsername);
+                if (response.choices && response.choices[0]) {
+                    appendMessage('assistant', response.choices[0].message.content);
+                }
             } catch (error) {
                 appendMessage('system', '⚠️ Error: ' + error.message);
             }
         });
 
-        // Save settings to localStorage
+        // Save settings to localStorage (only shape username, never API key)
         window.addEventListener('beforeunload', () => {
-            localStorage.setItem('chatUsername', usernameInput.value);
-            localStorage.setItem('chatApiEndpoint', apiEndpointInput.value);
+            localStorage.setItem('shapeUsername', shapeUsernameInput.value);
         });
 
         // Load saved settings
         window.addEventListener('DOMContentLoaded', () => {
-            usernameInput.value = localStorage.getItem('chatUsername') || '';
-            apiEndpointInput.value = localStorage.getItem('chatApiEndpoint') || '';
+            shapeUsernameInput.value = localStorage.getItem('shapeUsername') || '';
         });
     </script>
 </body>
